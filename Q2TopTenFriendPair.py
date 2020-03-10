@@ -4,7 +4,7 @@ import sys
 
 argLen = len(sys.argv)
 if(argLen!=4):
-    print("Usage: <script_name> <soc-adj input file path> <user data input file path> <output folder path>")
+    print("Usage: <script_name> <soc-LiveJournal1Adj.txt input file path> <user data input file path> <output folder path>")
     exit(1)
 
 friendListInputFile = "file://" + str(sys.argv[1])

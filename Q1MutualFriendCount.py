@@ -4,7 +4,7 @@ import sys
 
 argLen = len(sys.argv)
 if(argLen!=3):
-    print("Usage: <script_name> <input file path> <output folder path>")
+    print("Usage: <script_name> <soc-LiveJournal1Adj.txt input file path> <output folder path>")
     exit(1)
 
 inputFile = "file://"+str(sys.argv[1])

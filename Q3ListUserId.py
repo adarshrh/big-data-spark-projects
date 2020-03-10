@@ -14,17 +14,6 @@ outputFile = "file://"+str(sys.argv[3])
 conf = SparkConf().setMaster("local").setAppName("Q3")
 sc = SparkContext(conf=conf)
 
-def countMap(record):
-    count = 0
-    length = len(record[1])
-    if(length==2):
-        l1 = set(record[1][0].split(","))
-        l2= set(record[1][1].split(","))
-        count = len(l1.intersection(l2))
-    return count
-
-
-
 readReviews = sc.textFile(reviewFile).map(lambda x: x.split("::"))\
     .map(lambda x: (x[2],(x[1],x[3])))
 readBusiness = sc.textFile(businessFile).map(lambda x: x.split("::")).map(lambda x: (x[0],x[1]))\

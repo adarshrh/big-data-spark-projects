@@ -1,0 +1,25 @@
+Steps to run the program:
+
+Extract the zip folder axh190002
+Folder structure inside axh190002
+     - input (contains input files)
+     - output (contains output of each question)
+     - source_code (contains python source code for each question)
+
+Run the below commands to execute each question
+
+Qusetion 1)
+
+<spark folder>/bin/spark-submit <Extracted folder path>/axh190002/source_code/Q1MutualFriendCount.py <Extracted folder path>/axh190002/input/soc-LiveJournal1Adj.txt <Q1 Output folder>
+
+Question 2)
+
+<spark folder>/bin/spark-submit <Extracted folder path>/axh190002/source_code/Q2TopTenFriendPair.py <Extracted folder path>/axh190002/input/soc-LiveJournal1Adj.txt <Extracted folder path>/axh190002/input/userdata.txt <Q2 Output folder>
+
+Question 3)
+
+<spark folder>/bin/spark-submit <Extracted folder path>/axh190002/source_code/Q3ListUserId.py <Extracted folder path>/axh190002/input/business.csv <Extracted folder path>/axh190002/input/review.csv <Q3 Output folder>
+
+Question 4)
+
+<spark folder>/bin/spark-submit <Extracted folder path>/axh190002/source_code/Q4TopTenAvgRated.py <Extracted folder path>/axh190002/input/business.csv <Extracted folder path>/axh190002/input/review.csv <Q4 Output folder>
