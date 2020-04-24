@@ -1,19 +1,23 @@
+import sys
+
 from nltk.stem.wordnet import WordNetLemmatizer
 from nltk.corpus import twitter_samples, stopwords
 from nltk.tag import pos_tag
 from nltk.tokenize import word_tokenize
 from nltk import FreqDist, classify, NaiveBayesClassifier
-
+import json
+import hashlib
+from kafka import KafkaConsumer
 import re, string, random
+from elasticsearch import Elasticsearch
 
-def remove_noise(tweet_tokens, stop_words = ()):
-
+def remove_noise(tweet_tokens, stop_words=()):
     cleaned_tokens = []
 
     for token, tag in pos_tag(tweet_tokens):
-        token = re.sub('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+#]|[!*\(\),]|'\
-                       '(?:%[0-9a-fA-F][0-9a-fA-F]))+','', token)
-        token = re.sub("(@[A-Za-z0-9_]+)","", token)
+        token = re.sub('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+#]|[!*\(\),]|' \
+                       '(?:%[0-9a-fA-F][0-9a-fA-F]))+', '', token)
+        token = re.sub("(@[A-Za-z0-9_]+)", "", token)
 
         if tag.startswith("NN"):
             pos = 'n'
@@ -29,24 +33,20 @@ def remove_noise(tweet_tokens, stop_words = ()):
             cleaned_tokens.append(token.lower())
     return cleaned_tokens
 
+
 def get_all_words(cleaned_tokens_list):
     for tokens in cleaned_tokens_list:
         for token in tokens:
             yield token
 
+
 def get_tweets_for_model(cleaned_tokens_list):
     for tweet_tokens in cleaned_tokens_list:
         yield dict([token, True] for token in tweet_tokens)
 
-if __name__ == "__main__":
 
-    positive_tweets = twitter_samples.strings('positive_tweets.json')
-    negative_tweets = twitter_samples.strings('negative_tweets.json')
-    text = twitter_samples.strings('tweets.20150430-223406.json')
-    tweet_tokens = twitter_samples.tokenized('positive_tweets.json')[0]
-
+def getSentimentAnalyzer():
     stop_words = stopwords.words('english')
-
     positive_tweet_tokens = twitter_samples.tokenized('positive_tweets.json')
     negative_tweet_tokens = twitter_samples.tokenized('negative_tweets.json')
 
@@ -62,32 +62,69 @@ if __name__ == "__main__":
     all_pos_words = get_all_words(positive_cleaned_tokens_list)
 
     freq_dist_pos = FreqDist(all_pos_words)
-    print(freq_dist_pos.most_common(10))
 
     positive_tokens_for_model = get_tweets_for_model(positive_cleaned_tokens_list)
     negative_tokens_for_model = get_tweets_for_model(negative_cleaned_tokens_list)
 
     positive_dataset = [(tweet_dict, "Positive")
-                         for tweet_dict in positive_tokens_for_model]
+                        for tweet_dict in positive_tokens_for_model]
 
     negative_dataset = [(tweet_dict, "Negative")
-                         for tweet_dict in negative_tokens_for_model]
+                        for tweet_dict in negative_tokens_for_model]
 
     dataset = positive_dataset + negative_dataset
-
     random.shuffle(dataset)
-
-    train_data = dataset[:7000]
-    test_data = dataset[7000:]
-
+    train_data = dataset
     classifier = NaiveBayesClassifier.train(train_data)
+    return classifier
 
-    print("Accuracy is:", classify.accuracy(classifier, test_data))
 
-    print(classifier.show_most_informative_features(10))
+def addId(data):
+    j = json.dumps(data).encode('ascii', 'ignore')
+    data['doc_id'] = hashlib.sha224(j).hexdigest()
+    return (data['doc_id'], json.dumps(data))
 
-    custom_tweet = "RT @OMGno2trump: This is how it's done.  Be strong.  Stand up for what's right.  Don't give in to idiots or bullies.  Speak out, tell the"
 
-    custom_tokens = remove_noise(word_tokenize(custom_tweet))
+def doClassify(record):
+    global analyzer
+    tweet = record
+    tokens = remove_noise(word_tokenize(tweet))
+    sentiment = analyzer.classify(dict([token, True] for token in tokens))
+    category="cornavirus"
+    if "trump" in tweet:
+        category="trump"
 
-    print(custom_tweet, classifier.classify(dict([token, True] for token in custom_tokens)))
+    esDoc = {
+        "tweet": tweet,
+        "sentiment": sentiment,
+        "category": category
+    }
+    print(esDoc)
+    return esDoc
+    # return str(tweet + " " + sentiment)
+
+
+if __name__ == "__main__":
+    argLen = len(sys.argv)
+    if (argLen != 2):
+        print()
+        print(
+            "Usage: <script_name> <topic name>")
+        print()
+        exit(1)
+    consumer = KafkaConsumer(bootstrap_servers='localhost:9092',
+                             auto_offset_reset='earliest',
+                             value_deserializer=lambda m: json.loads(m.decode('utf-8')))
+    topic=str(sys.argv[1])
+    consumer.subscribe([topic])
+    analyzer = getSentimentAnalyzer()
+    count=0
+    es = Elasticsearch([{'host': 'localhost', 'port': 9200}])
+    for message in consumer:
+        data = doClassify(message.value)
+        es.index(index='tweet-index', doc_type='default',id=count, body=data)
+        count+=1
+
+
+
+
